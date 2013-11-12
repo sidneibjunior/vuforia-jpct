@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/tiled_background"
+    android:contentDescription="@string/content_desc_vuforia_background" >
+
+    <TextView
+        android:id="@+id/activity_splash_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="30dp"
+        android:layout_marginRight="20dp"
+        android:layout_marginTop="18dp"
+        android:text="@string/activity_splash_title"
+        android:textColor="@color/white"
+        android:textSize="@dimen/splash_title"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/splash_screen_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/activity_splash_title"
+        android:layout_marginLeft="30dp"
+        android:layout_marginTop="2dp"
+        android:text="@string/activity_splash_subtitle"
+        android:textColor="@color/gray"
+        android:textSize="@dimen/splash_subtitle" />
+
+    <ImageView
+        android:id="@+id/vuforia_splash_logo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginBottom="5dp"
+        android:layout_marginRight="10dp"
+        android:contentDescription="@string/content_desc_vuforia_logo"
+        android:src="@drawable/activity_splash_logo" />
+
+    <ImageView
+        android:id="@+id/vuforia_logo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/vuforia_splash_logo"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:contentDescription="@string/content_desc_vuforia_logo"
+        android:scaleType="fitEnd"
+        android:src="@drawable/blueprint_vuforia" />
+
+</RelativeLayout>

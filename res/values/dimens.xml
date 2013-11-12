@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <dimen name="about_title">18sp</dimen>
+    <dimen name="about_text">14sp</dimen>
+    <dimen name="splash_title">40sp</dimen>
+    <dimen name="splash_subtitle">20sp</dimen>
+
+</resources>

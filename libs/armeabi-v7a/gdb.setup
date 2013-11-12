@@ -1,0 +1,2 @@
+set solib-search-path ./obj/local/armeabi-v7a
+directory C:/Users/matheus/dev/android-ndk-r8c/platforms/android-8/arch-arm/usr/include C:/Users/matheus/dev/android-ndk-r8c/sources/cxx-stl/system/include jni/../../../build/include

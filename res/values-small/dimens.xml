@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <dimen name="splash_title">25sp</dimen>
+    <dimen name="splash_subtitle">15sp</dimen>
+
+</resources>

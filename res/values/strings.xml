@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">ImageTarget</string>
+    <string name="app_description">QCAR ImageTargets Sample Application</string>
+    <string name="activity_splash_title">ImageTargets</string>
+    <string name="activity_splash_subtitle">sample application</string>
+    <string name="about_title">About</string>
+    <string name="about_text">This sample app illustrates how to use the Vuforia ImageTargets feature. The app detects certain images and augments a 3D teapot on top of them. &lt;br />&lt;br />To use this app:&lt;br />1. Print the image targets located at &lt;a href="https://developer.vuforia.com/resources/samples/files">developer.vuforia.com/resources/samples/files&lt;/a>&lt;br />&lt;br />2. Point your device at any of the images&lt;br />&lt;br />3. See the teapot augmented on  top of the image&lt;br />&lt;br />© 2010 &#8211; 2013 Qualcomm Austria Research Center GmbH. All rights reserved.&lt;br />Subject to agreements at &lt;a href="http://developer.vuforia.com/legal/EULA">developer.vuforia.com/legal/EULA &lt;/a>&lt;&lt;br />&lt;br /></string>
+    <string name="button_start">Start</string>
+    <string name="content_desc_vuforia_logo">Vuforia Logo</string>
+    <string name="content_desc_vuforia_background">Vuforia Background</string>
+    <string name="menu_flash_on">Flash On</string>
+    <string name="menu_flash_off">Flash Off</string>
+    <string name="menu_contAutofocus_on">Cont. Autofocus On</string>
+    <string name="menu_contAutofocus_off">Cont. Autofocus Off</string>
+    <string name="menu_switch_to_tarmac">Switch to Tarmac</string>
+    <string name="menu_switch_to_stone_chips">Switch to Stones &amp; Chips</string>
+    <string name="menu_camera_title">Options</string>
+
+</resources>
