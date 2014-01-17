@@ -1,15 +1,7 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file 
-    SampleUtils.h
-
-@brief
-    A utility class.
-
-==============================================================================*/
-
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 #ifndef _QCAR_SAMPLEUTILS_H_
 #define _QCAR_SAMPLEUTILS_H_

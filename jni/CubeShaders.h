@@ -1,19 +1,11 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file 
-    CubeShaders.h
-
-@brief
-    Defines OpenGL shaders as char* strings.
-
-==============================================================================*/
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 #ifndef _QCAR_CUBE_SHADERS_H_
 #define _QCAR_CUBE_SHADERS_H_
 
-#ifndef USE_OPENGL_ES_1_1
 
 static const char* cubeMeshVertexShader = " \
   \
@@ -49,7 +41,5 @@ void main() \
    gl_FragColor = texture2D(texSampler2D, texCoord); \
 } \
 ";
-
-#endif
 
 #endif // _QCAR_CUBE_SHADERS_H_

@@ -1,33 +1,20 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file 
-    SampleUtils.cpp
-
-@brief
-    Implementation of class SampleUtils.
-
-==============================================================================*/
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 #include "SampleUtils.h"
 
 #include <math.h>
 #include <stdlib.h>
 
-#ifdef USE_OPENGL_ES_1_1
-#include <GLES/gl.h>
-#include <GLES/glext.h>
-#else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#endif
 
 
 void
 SampleUtils::printMatrix(const float* mat)
 {
-	LOG("--");
     for(int r=0; r<4; r++,mat+=4)
         LOG("%7.3f %7.3f %7.3f %7.3f", mat[0], mat[1], mat[2], mat[3]);
 }

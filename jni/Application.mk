@@ -1,5 +1,5 @@
 #===============================================================================
-#Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
+#Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
 #All Rights Reserved.
 #
 #==============================================================================
@@ -7,7 +7,7 @@
 
 # Build both ARMv5TE and ARMv7-A machine code.
 
-APP_ABI := armeabi armeabi-v7a
+APP_ABI := armeabi-v7a
 
 # Set target Android API level to the application's minimum SDK version.
 

@@ -1,15 +1,7 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file 
-    ImageTargets.cpp
-
-@brief
-    Sample for ImageTargets
-
-==============================================================================*/
-
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 #include <jni.h>
 #include <android/log.h>
@@ -18,13 +10,8 @@ All Rights Reserved.
 #include <assert.h>
 #include <math.h>
 
-#ifdef USE_OPENGL_ES_1_1
-#include <GLES/gl.h>
-#include <GLES/glext.h>
-#else
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#endif
 
 #include <QCAR/QCAR.h>
 #include <QCAR/CameraDevice.h>
@@ -45,6 +32,7 @@ All Rights Reserved.
 #include "Texture.h"
 #include "CubeShaders.h"
 #include "Teapot.h"
+#include "Buildings.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -55,15 +43,12 @@ extern "C"
 int textureCount                = 0;
 Texture** textures              = 0;
 
-// OpenGL ES 2.0 specific:
-#ifdef USE_OPENGL_ES_2_0
 unsigned int shaderProgramID    = 0;
 GLint vertexHandle              = 0;
 GLint normalHandle              = 0;
 GLint textureCoordHandle        = 0;
 GLint mvpMatrixHandle           = 0;
 GLint texSampler2DHandle        = 0;
-#endif
 
 // Screen dimensions:
 unsigned int screenWidth        = 0;
@@ -77,11 +62,19 @@ QCAR::Matrix44F projectionMatrix;
 
 // Constants:
 static const float kObjectScale = 3.f;
+static const float kBuildingsObjectScale = 12.f;
 
 QCAR::DataSet* dataSetStonesAndChips    = 0;
 QCAR::DataSet* dataSetTarmac            = 0;
 
-bool switchDataSetAsap          = false;
+bool switchDataSetAsap            = false;
+bool isExtendedTrackingActivated = false;
+
+QCAR::CameraDevice::CAMERA currentCamera;
+
+const int STONES_AND_CHIPS_DATASET_ID = 0;
+const int TARMAC_DATASET_ID = 1;
+int selectedDataset = STONES_AND_CHIPS_DATASET_ID;
 
 // Object to receive update callbacks from QCAR SDK
 class ImageTargets_UpdateCallback : public QCAR::UpdateCallback
@@ -95,7 +88,7 @@ class ImageTargets_UpdateCallback : public QCAR::UpdateCallback
             // Get the image tracker:
             QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
             QCAR::ImageTracker* imageTracker = static_cast<QCAR::ImageTracker*>(
-                trackerManager.getTracker(QCAR::Tracker::IMAGE_TRACKER));
+                trackerManager.getTracker(QCAR::ImageTracker::getClassType()));
             if (imageTracker == 0 || dataSetStonesAndChips == 0 || dataSetTarmac == 0 ||
                 imageTracker->getActiveDataSet() == 0)
             {
@@ -103,31 +96,40 @@ class ImageTargets_UpdateCallback : public QCAR::UpdateCallback
                 return;
             }
             
-            if (imageTracker->getActiveDataSet() == dataSetStonesAndChips)
-            {
-                imageTracker->deactivateDataSet(dataSetStonesAndChips);
-                imageTracker->activateDataSet(dataSetTarmac);
-            }
-            else
-            {
-                imageTracker->deactivateDataSet(dataSetTarmac);
-                imageTracker->activateDataSet(dataSetStonesAndChips);
-            }
+			switch( selectedDataset )
+			{
+				case STONES_AND_CHIPS_DATASET_ID:
+					if (imageTracker->getActiveDataSet() != dataSetStonesAndChips)
+					{
+						imageTracker->deactivateDataSet(dataSetTarmac);
+						imageTracker->activateDataSet(dataSetStonesAndChips);
+					}
+					break;
+					
+				case TARMAC_DATASET_ID:
+					if (imageTracker->getActiveDataSet() != dataSetTarmac)
+					{
+						imageTracker->deactivateDataSet(dataSetStonesAndChips);
+						imageTracker->activateDataSet(dataSetTarmac);
+					}
+					break;
+			}
+
+			if(isExtendedTrackingActivated)
+			{
+				QCAR::DataSet* currentDataSet = imageTracker->getActiveDataSet();
+				for (int tIdx = 0; tIdx < currentDataSet->getNumTrackables(); tIdx++)
+				{
+					QCAR::Trackable* trackable = currentDataSet->getTrackable(tIdx);
+					trackable->startExtendedTracking();
+				}
+			}
+
         }
     }
 };
 
 ImageTargets_UpdateCallback updateCallback;
-
-JNIEXPORT int JNICALL
-Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_getOpenGlEsVersionNative(JNIEnv *, jobject)
-{
-#ifdef USE_OPENGL_ES_1_1        
-    return 1;
-#else
-    return 2;
-#endif
-}
 
 
 JNIEXPORT void JNICALL
@@ -139,8 +141,9 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_setActivityPortraitMode(
 
 
 JNIEXPORT void JNICALL
-Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_switchDatasetAsap(JNIEnv *, jobject)
+Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_switchDatasetAsap(JNIEnv *, jobject, jint datasetId)
 {
+    selectedDataset = datasetId;
     switchDataSetAsap = true;
 }
 
@@ -152,7 +155,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_initTracker(JNIEnv *, jo
     
     // Initialize the image tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
-    QCAR::Tracker* tracker = trackerManager.initTracker(QCAR::Tracker::IMAGE_TRACKER);
+    QCAR::Tracker* tracker = trackerManager.initTracker(QCAR::ImageTracker::getClassType());
     if (tracker == NULL)
     {
         LOG("Failed to initialize ImageTracker.");
@@ -171,7 +174,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_deinitTracker(JNIEnv *, 
 
     // Deinit the image tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
-    trackerManager.deinitTracker(QCAR::Tracker::IMAGE_TRACKER);
+    trackerManager.deinitTracker(QCAR::ImageTracker::getClassType());
 }
 
 
@@ -183,7 +186,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_loadTrackerData(JNIEnv *
     // Get the image tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
     QCAR::ImageTracker* imageTracker = static_cast<QCAR::ImageTracker*>(
-                    trackerManager.getTracker(QCAR::Tracker::IMAGE_TRACKER));
+                    trackerManager.getTracker(QCAR::ImageTracker::getClassType()));
     if (imageTracker == NULL)
     {
         LOG("Failed to load tracking data set because the ImageTracker has not"
@@ -239,7 +242,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_destroyTrackerData(JNIEn
     // Get the image tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
     QCAR::ImageTracker* imageTracker = static_cast<QCAR::ImageTracker*>(
-        trackerManager.getTracker(QCAR::Tracker::IMAGE_TRACKER));
+        trackerManager.getTracker(QCAR::ImageTracker::getClassType()));
     if (imageTracker == NULL)
     {
         LOG("Failed to destroy the tracking data set because the ImageTracker has not"
@@ -309,12 +312,25 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 	jclass activityClass = env->GetObjectClass(obj); //We get the class of out activity
 	jmethodID updateMatrixMethod = env->GetMethodID(activityClass, "updateModelviewMatrix", "([F)V");
 
-	// Clear color and depth buffer
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	// Get the state from QCAR and mark the beginning of a rendering section
-	QCAR::State state = QCAR::Renderer::getInstance().begin();
-	// Explicitly render the Video Background
-	QCAR::Renderer::getInstance().drawVideoBackground();
+    // Clear color and depth buffer 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Get the state from QCAR and mark the beginning of a rendering section
+    QCAR::State state = QCAR::Renderer::getInstance().begin();
+    
+    // Explicitly render the Video Background
+    QCAR::Renderer::getInstance().drawVideoBackground();
+       
+    // We must detect if background reflection is active and adjust the culling direction. 
+    // If the reflection is active, this means the post matrix has been reflected as well,
+    // therefore standard counter clockwise face culling will result in "inside out" models. 
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    if(QCAR::Renderer::getInstance().getVideoBackgroundConfig().mReflection == QCAR::VIDEO_BACKGROUND_REFLECTION_ON)
+        glFrontFace(GL_CW);  //Front camera
+    else
+        glFrontFace(GL_CCW);   //Back camera
+
 
 	jfloatArray modelviewArray = env->NewFloatArray(16);
 	for(int tIdx = 0; tIdx < state.getNumTrackableResults(); tIdx++)
@@ -328,7 +344,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 
 		// Passes the model view matrix to java
 		env->SetFloatArrayRegion(modelviewArray, 0, 16, modelViewMatrix.data);
-		env->CallVoidMethod(obj, updateMatrixMethod , modelviewArray);
+		env->CallVoidMethod(obj, updateMatrixMethod, modelviewArray);
 	}
 
 
@@ -341,11 +357,12 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 				0,0,-10000,1
 		};
 		env->SetFloatArrayRegion(modelviewArray, 0, 16, m);
-		env->CallVoidMethod(obj, updateMatrixMethod , modelviewArray);
+		env->CallVoidMethod(obj, updateMatrixMethod, modelviewArray);
 	}
 	env->DeleteLocalRef(modelviewArray);
-}
 
+    QCAR::Renderer::getInstance().end();
+}
 
 
 void
@@ -396,9 +413,7 @@ configureVideoBackground(JNIEnv* env, jobject obj)
     }
 
     jclass activityClass = env->GetObjectClass(obj);
-
-    jmethodID videoMethod = env->GetMethodID(activityClass, "setVideoSize", "(II)V");
-
+	jmethodID videoMethod = env->GetMethodID(activityClass, "setVideoSize", "(II)V");
 	env->CallVoidMethod(obj, videoMethod, config.mSize.data[0], config.mSize.data[1]);
 
     LOG("Configure Video Background : Video (%d,%d), Screen (%d,%d), mSize (%d,%d)", videoMode.mWidth, videoMode.mHeight, screenWidth, screenHeight, config.mSize.data[0], config.mSize.data[1]);
@@ -470,6 +485,8 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_deinitApplicationNative(
 {
     LOG("Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_deinitApplicationNative");
 
+    isExtendedTrackingActivated = false;
+
     // Release texture resources
     if (textures != 0)
     {    
@@ -488,16 +505,15 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_deinitApplicationNative(
 
 
 JNIEXPORT void JNICALL
-Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv* env, jobject obj)
+Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv* env,
+                                                                         jobject obj, jint camera)
 {
     LOG("Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera");
     
-    // Select the camera to open, set this to QCAR::CameraDevice::CAMERA_FRONT 
-    // to activate the front camera instead.
-    QCAR::CameraDevice::CAMERA camera = QCAR::CameraDevice::CAMERA_DEFAULT;
+	currentCamera = static_cast<QCAR::CameraDevice::CAMERA> (camera);
 
     // Initialize the camera:
-    if (!QCAR::CameraDevice::getInstance().init(camera))
+    if (!QCAR::CameraDevice::getInstance().init(currentCamera))
         return;
 
     // Configure the video background
@@ -523,7 +539,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv* env,
 
     // Start the tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
-    QCAR::Tracker* imageTracker = trackerManager.getTracker(QCAR::Tracker::IMAGE_TRACKER);
+    QCAR::Tracker* imageTracker = trackerManager.getTracker(QCAR::ImageTracker::getClassType());
     if(imageTracker != 0)
         imageTracker->start();
 }
@@ -536,7 +552,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_stopCamera(JNIEnv *, job
 
     // Stop the tracker:
     QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
-    QCAR::Tracker* imageTracker = trackerManager.getTracker(QCAR::Tracker::IMAGE_TRACKER);
+    QCAR::Tracker* imageTracker = trackerManager.getTracker(QCAR::ImageTracker::getClassType());
     if(imageTracker != 0)
         imageTracker->stop();
     
@@ -553,7 +569,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_setProjectionMatrix(JNIE
     // Cache the projection matrix:
     const QCAR::CameraCalibration& cameraCalibration =
                                 QCAR::CameraDevice::getInstance().getCameraCalibration();
-    projectionMatrix = QCAR::Tool::getProjectionGL(cameraCalibration, 2.0f, 2500.0f);
+    projectionMatrix = QCAR::Tool::getProjectionGL(cameraCalibration, 10.0f, 5000.0f);
 }
 
 // ----------------------------------------------------------------------------
@@ -603,6 +619,52 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_setFocusMode(JNIEnv*, jo
 }
 
 
+JNIEXPORT jboolean JNICALL
+Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startExtendedTracking(JNIEnv*, jobject)
+{
+    QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
+    QCAR::ImageTracker* imageTracker = static_cast<QCAR::ImageTracker*>(
+          trackerManager.getTracker(QCAR::ImageTracker::getClassType()));
+
+    QCAR::DataSet* currentDataSet = imageTracker->getActiveDataSet();
+    if (imageTracker == 0 || currentDataSet == 0)
+    	return JNI_FALSE;
+
+    for (int tIdx = 0; tIdx < currentDataSet->getNumTrackables(); tIdx++)
+    {
+        QCAR::Trackable* trackable = currentDataSet->getTrackable(tIdx);
+        if(!trackable->startExtendedTracking())
+        	return JNI_FALSE;
+    }
+
+    isExtendedTrackingActivated = true;
+    return JNI_TRUE;
+}
+
+
+JNIEXPORT jboolean JNICALL
+Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_stopExtendedTracking(JNIEnv*, jobject)
+{
+    QCAR::TrackerManager& trackerManager = QCAR::TrackerManager::getInstance();
+    QCAR::ImageTracker* imageTracker = static_cast<QCAR::ImageTracker*>(
+          trackerManager.getTracker(QCAR::ImageTracker::getClassType()));
+
+    QCAR::DataSet* currentDataSet = imageTracker->getActiveDataSet();
+    if (imageTracker == 0 || currentDataSet == 0)
+    	return JNI_FALSE;
+
+    for (int tIdx = 0; tIdx < currentDataSet->getNumTrackables(); tIdx++)
+    {
+    	QCAR::Trackable* trackable = currentDataSet->getTrackable(tIdx);
+        if(!trackable->stopExtendedTracking())
+        	return JNI_FALSE;
+    }
+    
+    isExtendedTrackingActivated = false;
+    return JNI_TRUE;
+}
+
+
 JNIEXPORT void JNICALL
 Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_initRendering(
                                                     JNIEnv* env, jobject obj)
@@ -623,7 +685,6 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_initRendering(
                 textures[i]->mHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                 (GLvoid*)  textures[i]->mData);
     }
-#ifndef USE_OPENGL_ES_1_1
   
     shaderProgramID     = SampleUtils::createProgramFromBuffer(cubeMeshVertexShader,
                                                             cubeFragmentShader);
@@ -639,8 +700,6 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_initRendering(
     texSampler2DHandle  = glGetUniformLocation(shaderProgramID, 
                                                 "texSampler2D");
                                                 
-#endif
-
 }
 
 

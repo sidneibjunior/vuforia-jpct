@@ -1,15 +1,7 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file
-    ImageTargets.java
-
-@brief
-    Sample for ImageTargets
-
-==============================================================================*/
-
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 package com.qualcomm.QCARSamples.ImageTargets;
 
@@ -22,108 +14,116 @@ import android.content.DialogInterface;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.hardware.Camera;
+import android.hardware.Camera.CameraInfo;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.DisplayMetrics;
 import android.view.GestureDetector;
-import android.view.KeyEvent;
 import android.view.LayoutInflater;
-import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
+import android.widget.CompoundButton;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
 import com.qualcomm.QCAR.QCAR;
+import com.qualcomm.QCARSamples.ImageTargets.ui.SampleAppMenu.SampleAppMenu;
+import com.qualcomm.QCARSamples.ImageTargets.ui.SampleAppMenu.SampleAppMenuGroup;
+import com.qualcomm.QCARSamples.ImageTargets.ui.SampleAppMenu.SampleAppMenuInterface;
 
 
 /** The main activity for the ImageTargets sample. */
-public class ImageTargets extends Activity
+public class ImageTargets extends Activity implements SampleAppMenuInterface
 {
     // Focus mode constants:
     private static final int FOCUS_MODE_NORMAL = 0;
     private static final int FOCUS_MODE_CONTINUOUS_AUTO = 1;
-
+    
     // Application status constants:
-    private static final int APPSTATUS_UNINITED         = -1;
-    private static final int APPSTATUS_INIT_APP         = 0;
-    private static final int APPSTATUS_INIT_QCAR        = 1;
-    private static final int APPSTATUS_INIT_TRACKER     = 2;
-    private static final int APPSTATUS_INIT_APP_AR      = 3;
-    private static final int APPSTATUS_LOAD_TRACKER     = 4;
-    private static final int APPSTATUS_INITED           = 5;
-    private static final int APPSTATUS_CAMERA_STOPPED   = 6;
-    private static final int APPSTATUS_CAMERA_RUNNING   = 7;
-
+    private static final int APPSTATUS_UNINITED = -1;
+    private static final int APPSTATUS_INIT_APP = 0;
+    private static final int APPSTATUS_INIT_QCAR = 1;
+    private static final int APPSTATUS_INIT_TRACKER = 2;
+    private static final int APPSTATUS_INIT_APP_AR = 3;
+    private static final int APPSTATUS_LOAD_TRACKER = 4;
+    private static final int APPSTATUS_INITED = 5;
+    private static final int APPSTATUS_CAMERA_STOPPED = 6;
+    private static final int APPSTATUS_CAMERA_RUNNING = 7;
+    
     // Name of the native dynamic libraries to load:
-    private static final String NATIVE_LIB_SAMPLE = "ImageTargets";
-    private static final String NATIVE_LIB_QCAR = "QCAR";
-
+    private static final String NATIVE_LIB_SAMPLE = "ImageTargetsNative";
+    private static final String NATIVE_LIB_QCAR = "Vuforia";
+    
     // Constants for Hiding/Showing Loading dialog
     static final int HIDE_LOADING_DIALOG = 0;
     static final int SHOW_LOADING_DIALOG = 1;
-
+    
     private View mLoadingDialogContainer;
-
+    
     // Our OpenGL view:
     private QCARSampleGLView mGlView;
-
+    
     // Our renderer:
     private ImageTargetsRenderer mRenderer;
-
+    
     // Display size of the device:
     private int mScreenWidth = 0;
     private int mScreenHeight = 0;
-
+    
     // Constant representing invalid screen orientation to trigger a query:
     private static final int INVALID_SCREEN_ROTATION = -1;
-
+    
     // Last detected screen rotation:
     private int mLastScreenRotation = INVALID_SCREEN_ROTATION;
-
+    
     // The current application status:
     private int mAppStatus = APPSTATUS_UNINITED;
-
-    // The async tasks to initialize the QCAR SDK:
-    private InitQCARTask mInitQCARTask;
+    
+    // The async tasks to initialize the Vuforia SDK:
+    private InitVuforiaTask mInitVuforiaTask;
     private LoadTrackerTask mLoadTrackerTask;
-
-    // An object used for synchronizing QCAR initialization, dataset loading and
+    
+    // An object used for synchronizing Vuforia initialization, dataset loading
+    // and
     // the Android onDestroy() life cycle event. If the application is destroyed
     // while a data set is still being loaded, then we wait for the loading
-    // operation to finish before shutting down QCAR:
+    // operation to finish before shutting down Vuforia:
     private Object mShutdownLock = new Object();
-
-    // QCAR initialization flags:
-    private int mQCARFlags = 0;
-
+    
+    // Vuforia initialization flags:
+    private int mVuforiaFlags = 0;
+    
     // The textures we will use for rendering:
     private Vector<Texture> mTextures;
-
+    
     // Detects the double tap gesture for launching the Camera menu
     private GestureDetector mGestureDetector;
-
+    
+    private SampleAppMenu mSampleAppMenu;
+    
     // Contextual Menu Options for Camera Flash - Autofocus
     private boolean mFlash = false;
     private boolean mContAutofocus = false;
-
-    // The menu item for swapping data sets:
-    MenuItem mDataSetMenuItem = null;
-    boolean mIsStonesAndChipsDataSetActive  = false;
-
+    private boolean mExtendedTracking = false;
+    
+    private View mFlashOptionView;
+    
     private RelativeLayout mUILayout;
-
+    
+    boolean mIsDroidDevice = false;
+    
     /** Static initializer block to load native libraries on start-up. */
     static
     {
         loadLibrary(NATIVE_LIB_QCAR);
         loadLibrary(NATIVE_LIB_SAMPLE);
     }
-
+    
     /**
      * Creates a handler to update the status of the Loading Dialog from an UI
      * Thread
@@ -131,15 +131,14 @@ public class ImageTargets extends Activity
     static class LoadingDialogHandler extends Handler
     {
         private final WeakReference<ImageTargets> mImageTargets;
-
-
+        
+        
         LoadingDialogHandler(ImageTargets imageTargets)
         {
-            mImageTargets = new WeakReference<ImageTargets>(
-                    imageTargets);
+            mImageTargets = new WeakReference<ImageTargets>(imageTargets);
         }
-
-
+        
+        
         public void handleMessage(Message msg)
         {
             ImageTargets imageTargets = mImageTargets.get();
@@ -147,43 +146,35 @@ public class ImageTargets extends Activity
             {
                 return;
             }
-
+            
             if (msg.what == SHOW_LOADING_DIALOG)
             {
                 imageTargets.mLoadingDialogContainer
-                        .setVisibility(View.VISIBLE);
-
-            }
-            else if (msg.what == HIDE_LOADING_DIALOG)
+                    .setVisibility(View.VISIBLE);
+                
+            } else if (msg.what == HIDE_LOADING_DIALOG)
             {
                 imageTargets.mLoadingDialogContainer.setVisibility(View.GONE);
             }
         }
     }
     
-    public void setVideoSize(int width, int height) {
-    	if (mRenderer != null) {
-    		mRenderer.setVideoSize(width, height);
-    	}
-    }
-
-
     private Handler loadingDialogHandler = new LoadingDialogHandler(this);
-
-
-    /** An async task to initialize QCAR asynchronously. */
-    private class InitQCARTask extends AsyncTask<Void, Integer, Boolean>
+    
+    /** An async task to initialize Vuforia asynchronously. */
+    private class InitVuforiaTask extends AsyncTask<Void, Integer, Boolean>
     {
         // Initialize with invalid value:
         private int mProgressValue = -1;
-
+        
+        
         protected Boolean doInBackground(Void... params)
         {
             // Prevent the onDestroy() method to overlap with initialization:
             synchronized (mShutdownLock)
             {
-                QCAR.setInitParameters(ImageTargets.this, mQCARFlags);
-
+                QCAR.setInitParameters(ImageTargets.this, mVuforiaFlags);
+                
                 do
                 {
                     // QCAR.init() blocks until an initialization step is
@@ -192,10 +183,10 @@ public class ImageTargets extends Activity
                     // If QCAR.init() returns -1, it indicates an error.
                     // Initialization is done when progress has reached 100%.
                     mProgressValue = QCAR.init();
-
+                    
                     // Publish the progress value:
                     publishProgress(mProgressValue);
-
+                    
                     // We check whether the task has been canceled in the
                     // meantime (by calling AsyncTask.cancel(true)).
                     // and bail out if it has, thus stopping this thread.
@@ -203,43 +194,37 @@ public class ImageTargets extends Activity
                     // regardless of the status of the component that
                     // started is.
                 } while (!isCancelled() && mProgressValue >= 0
-                         && mProgressValue < 100);
-
+                    && mProgressValue < 100);
+                
                 return (mProgressValue > 0);
             }
         }
-
-
+        
+        
         protected void onProgressUpdate(Integer... values)
         {
             // Do something with the progress value "values[0]", e.g. update
             // splash screen, progress bar, etc.
         }
-
-
+        
+        
         protected void onPostExecute(Boolean result)
         {
-            // Done initializing QCAR, proceed to next application
+            // Done initializing Vuforia, proceed to next application
             // initialization status:
             if (result)
             {
-                DebugLog.LOGD("InitQCARTask::onPostExecute: QCAR " +
-                              "initialization successful");
-
+                DebugLog.LOGD("InitVuforiaTask::onPostExecute: Vuforia "
+                    + "initialization successful");
+                
                 updateApplicationStatus(APPSTATUS_INIT_TRACKER);
-            }
-            else
+            } else
             {
                 // Create dialog box for display error:
-                AlertDialog dialogError = new AlertDialog.Builder
-                (
-                    ImageTargets.this
-                ).create();
-
-                dialogError.setButton
-                (
-                    DialogInterface.BUTTON_POSITIVE,
-                    "Close",
+                AlertDialog dialogError = new AlertDialog.Builder(
+                    ImageTargets.this).create();
+                
+                dialogError.setButton(DialogInterface.BUTTON_POSITIVE, "Close",
                     new DialogInterface.OnClickListener()
                     {
                         public void onClick(DialogInterface dialog, int which)
@@ -247,36 +232,33 @@ public class ImageTargets extends Activity
                             // Exiting application:
                             System.exit(1);
                         }
-                    }
-                );
-
+                    });
+                
                 String logMessage;
-
+                
                 // NOTE: Check if initialization failed because the device is
                 // not supported. At this point the user should be informed
                 // with a message.
                 if (mProgressValue == QCAR.INIT_DEVICE_NOT_SUPPORTED)
                 {
-                    logMessage = "Failed to initialize QCAR because this " +
-                        "device is not supported.";
-                }
-                else
+                    logMessage = "Failed to initialize Vuforia because this "
+                        + "device is not supported.";
+                } else
                 {
-                    logMessage = "Failed to initialize QCAR.";
+                    logMessage = "Failed to initialize Vuforia.";
                 }
-
+                
                 // Log error:
-                DebugLog.LOGE("InitQCARTask::onPostExecute: " + logMessage +
-                                " Exiting.");
-
+                DebugLog.LOGE("InitVuforiaTask::onPostExecute: " + logMessage
+                    + " Exiting.");
+                
                 // Show dialog box with error message:
                 dialogError.setMessage(logMessage);
                 dialogError.show();
             }
         }
     }
-
-
+    
     /** An async task to load the tracker data asynchronously. */
     private class LoadTrackerTask extends AsyncTask<Void, Integer, Boolean>
     {
@@ -289,32 +271,24 @@ public class ImageTargets extends Activity
                 return (loadTrackerData() > 0);
             }
         }
-
+        
+        
         protected void onPostExecute(Boolean result)
         {
-            DebugLog.LOGD("LoadTrackerTask::onPostExecute: execution " +
-                        (result ? "successful" : "failed"));
-
+            DebugLog.LOGD("LoadTrackerTask::onPostExecute: execution "
+                + (result ? "successful" : "failed"));
+            
             if (result)
             {
-                // The stones and chips data set is now active:
-                mIsStonesAndChipsDataSetActive = true;
-
                 // Done loading the tracker, update application status:
                 updateApplicationStatus(APPSTATUS_INITED);
-            }
-            else
+            } else
             {
                 // Create dialog box for display error:
-                AlertDialog dialogError = new AlertDialog.Builder
-                (
-                    ImageTargets.this
-                ).create();
-
-                dialogError.setButton
-                (
-                    DialogInterface.BUTTON_POSITIVE,
-                    "Close",
+                AlertDialog dialogError = new AlertDialog.Builder(
+                    ImageTargets.this).create();
+                
+                dialogError.setButton(DialogInterface.BUTTON_POSITIVE, "Close",
                     new DialogInterface.OnClickListener()
                     {
                         public void onClick(DialogInterface dialog, int which)
@@ -322,17 +296,16 @@ public class ImageTargets extends Activity
                             // Exiting application:
                             System.exit(1);
                         }
-                    }
-                );
-
+                    });
+                
                 // Show dialog box with error message:
                 dialogError.setMessage("Failed to load tracker data.");
                 dialogError.show();
             }
         }
     }
-
-
+    
+    
     /** Stores screen dimensions */
     private void storeScreenDimensions()
     {
@@ -342,300 +315,290 @@ public class ImageTargets extends Activity
         mScreenWidth = metrics.widthPixels;
         mScreenHeight = metrics.heightPixels;
     }
-
-
-    /** Called when the activity first starts or the user navigates back
-     * to an activity. */
+    
+    
+    /**
+     * Called when the activity first starts or the user navigates back to an
+     * activity.
+     */
     protected void onCreate(Bundle savedInstanceState)
     {
-        DebugLog.LOGD("ImageTargets::onCreate");
+        DebugLog.LOGD("onCreate");
         super.onCreate(savedInstanceState);
-
+        
         // Load any sample specific textures:
         mTextures = new Vector<Texture>();
         loadTextures();
-
-        // Query the QCAR initialization flags:
-        mQCARFlags = getInitializationFlags();
-
+        
+        // Configure Vuforia to use OpenGL ES 2.0
+        mVuforiaFlags = QCAR.GL_20;
+        
         // Creates the GestureDetector listener for processing double tap
         mGestureDetector = new GestureDetector(this, new GestureListener());
-
+        
         // Update the application status to start initializing application:
         updateApplicationStatus(APPSTATUS_INIT_APP);
+        
+        mIsDroidDevice = android.os.Build.MODEL.toLowerCase().startsWith(
+            "droid");
+        
     }
-
-
-    /** We want to load specific textures from the APK, which we will later
-    use for rendering. */
+    
+    
+    /**
+     * We want to load specific textures from the APK, which we will later use
+     * for rendering.
+     */
     private void loadTextures()
     {
         mTextures.add(Texture.loadTextureFromApk("TextureTeapotBrass.png",
-                                                 getAssets()));
+            getAssets()));
         mTextures.add(Texture.loadTextureFromApk("TextureTeapotBlue.png",
-                                                 getAssets()));
+            getAssets()));
         mTextures.add(Texture.loadTextureFromApk("TextureTeapotRed.png",
-                getAssets()));
+            getAssets()));
+        mTextures
+            .add(Texture.loadTextureFromApk("Buildings.jpeg", getAssets()));
     }
-
-
-    /** Configure QCAR with the desired version of OpenGL ES. */
-    private int getInitializationFlags()
-    {
-        int flags = 0;
-
-        // Query the native code:
-        if (getOpenGlEsVersionNative() == 1)
-        {
-            flags = QCAR.GL_11;
-        }
-        else
-        {
-            flags = QCAR.GL_20;
-        }
-
-        return flags;
-    }
-
-
-    /** Native method for querying the OpenGL ES version.
-     * Returns 1 for OpenGl ES 1.1, returns 2 for OpenGl ES 2.0. */
-    public native int getOpenGlEsVersionNative();
-
+    
+    
     /** Native tracker initialization and deinitialization. */
     public native int initTracker();
+    
+    
     public native void deinitTracker();
-
+    
+    
     /** Native functions to load and destroy tracking data. */
     public native int loadTrackerData();
+    
+    
     public native void destroyTrackerData();
-
+    
+    
     /** Native sample initialization. */
     public native void onQCARInitializedNative();
-
-    /** Native methods for starting and stopping the camera. */
-    private native void startCamera();
+    
+    
+    /** Native methods for starting and stopping the desired camera. */
+    private native void startCamera(int camera);
+    
+    
     private native void stopCamera();
-
-    /** Native method for setting / updating the projection matrix
-     * for AR content rendering */
+    
+    
+    /**
+     * Native method for setting / updating the projection matrix for AR content
+     * rendering
+     */
     private native void setProjectionMatrix();
-
-
-   /** Called when the activity will start interacting with the user.*/
+    
+    
+    /** Native method for starting / stopping off target tracking */
+    private native boolean startExtendedTracking();
+    
+    
+    private native boolean stopExtendedTracking();
+    
+    
+    /** Called when the activity will start interacting with the user. */
     protected void onResume()
     {
-        DebugLog.LOGD("ImageTargets::onResume");
+        DebugLog.LOGD("onResume");
         super.onResume();
-
-        // QCAR-specific resume operation
+        
+        // This is needed for some Droid devices to force portrait
+        if (mIsDroidDevice)
+        {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        }
+        
+        // Vuforia-specific resume operation
         QCAR.onResume();
-
-        // We may start the camera only if the QCAR SDK has already been
+        
+        // We may start the camera only if the Vuforia SDK has already been
         // initialized
         if (mAppStatus == APPSTATUS_CAMERA_STOPPED)
         {
             updateApplicationStatus(APPSTATUS_CAMERA_RUNNING);
         }
-
+        
         // Resume the GL view:
         if (mGlView != null)
         {
             mGlView.setVisibility(View.VISIBLE);
             mGlView.onResume();
         }
+        
     }
-
-
-    private void updateActivityOrientation()
-    {
-        Configuration config = getResources().getConfiguration();
-
-        boolean isPortrait = false;
-
-        switch (config.orientation)
-        {
-        case Configuration.ORIENTATION_PORTRAIT:
-            isPortrait = true;
-            break;
-        case Configuration.ORIENTATION_LANDSCAPE:
-            isPortrait = false;
-            break;
-        case Configuration.ORIENTATION_UNDEFINED:
-        default:
-            break;
-        }
-
-        DebugLog.LOGI("Activity is in "
-                + (isPortrait ? "PORTRAIT" : "LANDSCAPE"));
-        setActivityPortraitMode(isPortrait);
-    }
-
-
+    
+    
     /**
-     * Updates projection matrix and viewport after a screen rotation
-     * change was detected.
+     * Updates projection matrix and viewport after a screen rotation change was
+     * detected.
      */
     public void updateRenderView()
     {
-        int currentScreenRotation = getWindowManager().getDefaultDisplay().getRotation();
+        int currentScreenRotation = getWindowManager().getDefaultDisplay()
+            .getRotation();
         if (currentScreenRotation != mLastScreenRotation)
         {
             // Set projection matrix if there is already a valid one:
-            if (QCAR.isInitialized() && (mAppStatus == APPSTATUS_CAMERA_RUNNING))
+            if (QCAR.isInitialized()
+                && (mAppStatus == APPSTATUS_CAMERA_RUNNING))
             {
-                DebugLog.LOGD("ImageTargets::updateRenderView");
-
+                DebugLog.LOGD("updateRenderView");
+                
                 // Query display dimensions:
                 storeScreenDimensions();
-
+                
                 // Update viewport via renderer:
                 mRenderer.updateRendering(mScreenWidth, mScreenHeight);
-
+                
                 // Update projection matrix:
                 setProjectionMatrix();
-
+                
                 // Cache last rotation used for setting projection matrix:
                 mLastScreenRotation = currentScreenRotation;
             }
         }
     }
-
-
+    
+    
     /** Callback for configuration changes the activity handles itself */
     public void onConfigurationChanged(Configuration config)
     {
-        DebugLog.LOGD("ImageTargets::onConfigurationChanged");
+        DebugLog.LOGD("onConfigurationChanged");
         super.onConfigurationChanged(config);
-
-        updateActivityOrientation();
-
+        
         storeScreenDimensions();
-
+        
         // Invalidate screen rotation to trigger query upon next render call:
         mLastScreenRotation = INVALID_SCREEN_ROTATION;
     }
-
-
-    /** Called when the system is about to start resuming a previous activity.*/
+    
+    
+    /** Called when the system is about to start resuming a previous activity. */
     protected void onPause()
     {
-        DebugLog.LOGD("ImageTargets::onPause");
+        DebugLog.LOGD("onPause");
         super.onPause();
-
+        
         if (mGlView != null)
         {
             mGlView.setVisibility(View.INVISIBLE);
             mGlView.onPause();
         }
-
+        
+        // Turn off the flash
+        if (mFlashOptionView != null && mFlash)
+        {
+            ((CompoundButton) mFlashOptionView).setChecked(false);
+        }
+        
         if (mAppStatus == APPSTATUS_CAMERA_RUNNING)
         {
             updateApplicationStatus(APPSTATUS_CAMERA_STOPPED);
         }
-
-        // Disable flash when paused
-        if (mFlash)
-        {
-            mFlash = false;
-            activateFlash(mFlash);
-        }
-
-        // QCAR-specific pause operation
+        
+        // Vuforia-specific pause operation
         QCAR.onPause();
     }
-
-
-    /** Native function to deinitialize the application.*/
+    
+    
+    /** Native function to deinitialize the application. */
     private native void deinitApplicationNative();
-
-
-    /** The final call you receive before your activity is destroyed.*/
+    
+    
+    /** The final call you receive before your activity is destroyed. */
     protected void onDestroy()
     {
-        DebugLog.LOGD("ImageTargets::onDestroy");
+        DebugLog.LOGD("onDestroy");
         super.onDestroy();
-
+        
         // Cancel potentially running tasks
-        if (mInitQCARTask != null &&
-            mInitQCARTask.getStatus() != InitQCARTask.Status.FINISHED)
+        if (mInitVuforiaTask != null
+            && mInitVuforiaTask.getStatus() != InitVuforiaTask.Status.FINISHED)
         {
-            mInitQCARTask.cancel(true);
-            mInitQCARTask = null;
+            mInitVuforiaTask.cancel(true);
+            mInitVuforiaTask = null;
         }
-
-        if (mLoadTrackerTask != null &&
-            mLoadTrackerTask.getStatus() != LoadTrackerTask.Status.FINISHED)
+        
+        if (mLoadTrackerTask != null
+            && mLoadTrackerTask.getStatus() != LoadTrackerTask.Status.FINISHED)
         {
             mLoadTrackerTask.cancel(true);
             mLoadTrackerTask = null;
         }
-
-        // Ensure that all asynchronous operations to initialize QCAR
+        
+        // Ensure that all asynchronous operations to initialize Vuforia
         // and loading the tracker datasets do not overlap:
-        synchronized (mShutdownLock) {
-
+        synchronized (mShutdownLock)
+        {
+            
             // Do application deinitialization in native code:
             deinitApplicationNative();
-
+            
             // Unload texture:
             mTextures.clear();
             mTextures = null;
-
+            
             // Destroy the tracking data set:
             destroyTrackerData();
-
+            
             // Deinit the tracker:
             deinitTracker();
-
-            // Deinitialize QCAR SDK:
+            
+            // Deinitialize Vuforia SDK:
             QCAR.deinit();
         }
-
+        
         System.gc();
     }
-
-
-    /** NOTE: this method is synchronized because of a potential concurrent
-     * access by ImageTargets::onResume() and InitQCARTask::onPostExecute(). */
+    
+    
+    /**
+     * NOTE: this method is synchronized because of a potential concurrent
+     * access by onResume() and InitQCARTask.onPostExecute().
+     */
     private synchronized void updateApplicationStatus(int appStatus)
     {
         // Exit if there is no change in status:
         if (mAppStatus == appStatus)
             return;
-
+        
         // Store new status value:
         mAppStatus = appStatus;
-
+        
         // Execute application state-specific actions:
         switch (mAppStatus)
         {
             case APPSTATUS_INIT_APP:
-                // Initialize application elements that do not rely on QCAR
+                // Initialize application elements that do not rely on Vuforia
                 // initialization:
                 initApplication();
-
+                
                 // Proceed to next application initialization status:
                 updateApplicationStatus(APPSTATUS_INIT_QCAR);
                 break;
-
+            
             case APPSTATUS_INIT_QCAR:
-                // Initialize QCAR SDK asynchronously to avoid blocking the
+                // Initialize Vuforia SDK asynchronously to avoid blocking the
                 // main (UI) thread.
                 //
                 // NOTE: This task instance must be created and invoked on the
                 // UI thread and it can be executed only once!
                 try
                 {
-                    mInitQCARTask = new InitQCARTask();
-                    mInitQCARTask.execute();
-                }
-                catch (Exception e)
+                    mInitVuforiaTask = new InitVuforiaTask();
+                    mInitVuforiaTask.execute();
+                } catch (Exception e)
                 {
-                    DebugLog.LOGE("Initializing QCAR SDK failed");
+                    DebugLog.LOGE("Initializing Vuforia SDK failed");
                 }
                 break;
-
+            
             case APPSTATUS_INIT_TRACKER:
                 // Initialize the ImageTracker:
                 if (initTracker() > 0)
@@ -644,17 +607,17 @@ public class ImageTargets extends Activity
                     updateApplicationStatus(APPSTATUS_INIT_APP_AR);
                 }
                 break;
-
+            
             case APPSTATUS_INIT_APP_AR:
                 // Initialize Augmented Reality-specific application elements
-                // that may rely on the fact that the QCAR SDK has been
+                // that may rely on the fact that the Vuforia SDK has been
                 // already initialized:
                 initApplicationAR();
-
+                
                 // Proceed to next application initialization status:
                 updateApplicationStatus(APPSTATUS_LOAD_TRACKER);
                 break;
-
+            
             case APPSTATUS_LOAD_TRACKER:
                 // Load the tracking data set:
                 //
@@ -664,13 +627,12 @@ public class ImageTargets extends Activity
                 {
                     mLoadTrackerTask = new LoadTrackerTask();
                     mLoadTrackerTask.execute();
-                }
-                catch (Exception e)
+                } catch (Exception e)
                 {
                     DebugLog.LOGE("Loading tracking data set failed");
                 }
                 break;
-
+            
             case APPSTATUS_INITED:
                 // Hint to the virtual machine that it would be a good time to
                 // run the garbage collector:
@@ -678,153 +640,167 @@ public class ImageTargets extends Activity
                 // NOTE: This is only a hint. There is no guarantee that the
                 // garbage collector will actually be run.
                 System.gc();
-
+                
                 // Native post initialization:
                 onQCARInitializedNative();
-
+                
                 // Activate the renderer:
                 mRenderer.mIsActive = true;
-
+                
                 // Now add the GL surface view. It is important
                 // that the OpenGL ES surface view gets added
                 // BEFORE the camera is started and video
                 // background is configured.
-                addContentView(mGlView, new LayoutParams(LayoutParams.MATCH_PARENT,
-                        LayoutParams.MATCH_PARENT));
-
+                addContentView(mGlView, new LayoutParams(
+                    LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                
                 // Sets the UILayout to be drawn in front of the camera
                 mUILayout.bringToFront();
-
+                
                 // Start the camera:
                 updateApplicationStatus(APPSTATUS_CAMERA_RUNNING);
-
+                
                 break;
-
+            
             case APPSTATUS_CAMERA_STOPPED:
                 // Call the native function to stop the camera:
                 stopCamera();
                 break;
-
+            
             case APPSTATUS_CAMERA_RUNNING:
                 // Call the native function to start the camera:
-                startCamera();
-
+                startCamera(CAMERA_DEFAULT);
+                
+                // Hides the Loading Dialog
+                loadingDialogHandler.sendEmptyMessage(HIDE_LOADING_DIALOG);
+                
                 // Sets the layout background to transparent
                 mUILayout.setBackgroundColor(Color.TRANSPARENT);
-
+                
                 // Set continuous auto-focus if supported by the device,
                 // otherwise default back to regular auto-focus mode.
                 // This will be activated by a tap to the screen in this
                 // application.
-                if (!setFocusMode(FOCUS_MODE_CONTINUOUS_AUTO))
+                boolean result = setFocusMode(FOCUS_MODE_CONTINUOUS_AUTO);
+                if (!result)
                 {
+                    DebugLog.LOGE("Unable to enable continuous autofocus");
                     mContAutofocus = false;
                     setFocusMode(FOCUS_MODE_NORMAL);
-                }
-                else
+                } else
                 {
                     mContAutofocus = true;
                 }
+                
+                if( mSampleAppMenu == null)
+                {
+                    mSampleAppMenu = new SampleAppMenu(this, this, "Image Targets",
+                        mGlView, mUILayout, null);
+                    setSampleAppMenuSettings();
+                }
+                
                 break;
-
+            
             default:
                 throw new RuntimeException("Invalid application state");
         }
     }
     
-    public void hideLoading() {
-    	loadingDialogHandler.sendEmptyMessage(HIDE_LOADING_DIALOG);
-    }
-
-
+    
     /** Tells native code whether we are in portait or landscape mode */
     private native void setActivityPortraitMode(boolean isPortrait);
-
-
+    
+    
     /** Initialize application GUI elements that are not related to AR. */
     private void initApplication()
     {
-        // Apply screen orientation
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+    	
+    	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
-        updateActivityOrientation();
-
+        setActivityPortraitMode(false);
+        
         // Query display dimensions:
         storeScreenDimensions();
-
+        
         // As long as this window is visible to the user, keep the device's
         // screen turned on and bright:
-        getWindow().setFlags(
-            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
-
-
+    
+    
     /** Native function to initialize the application. */
     private native void initApplicationNative(int width, int height);
-
-
+    
+    
     /** Initializes AR application components. */
     private void initApplicationAR()
     {
         // Do application initialization in native code (e.g. registering
         // callbacks, etc.):
         initApplicationNative(mScreenWidth, mScreenHeight);
-
+        
         // Create OpenGL ES view:
         int depthSize = 16;
         int stencilSize = 0;
         boolean translucent = QCAR.requiresAlpha();
-
+        
         mGlView = new QCARSampleGLView(this);
-        mGlView.init(mQCARFlags, translucent, depthSize, stencilSize);
-
+        mGlView.init(translucent, depthSize, stencilSize);
+        
         mRenderer = new ImageTargetsRenderer(this);
+        mRenderer.mActivity = this;
         mGlView.setRenderer(mRenderer);
-
+        
         LayoutInflater inflater = LayoutInflater.from(this);
         mUILayout = (RelativeLayout) inflater.inflate(R.layout.camera_overlay,
-                null, false);
-
+            null, false);
+        
         mUILayout.setVisibility(View.VISIBLE);
         mUILayout.setBackgroundColor(Color.BLACK);
-
+        
         // Gets a reference to the loading dialog
-        mLoadingDialogContainer = mUILayout.findViewById(R.id.loading_indicator);
-
+        mLoadingDialogContainer = mUILayout
+            .findViewById(R.id.loading_indicator);
+        
         // Shows the loading indicator at start
         loadingDialogHandler.sendEmptyMessage(SHOW_LOADING_DIALOG);
-
+        
         // Adds the inflated layout to the view
         addContentView(mUILayout, new LayoutParams(LayoutParams.MATCH_PARENT,
-                LayoutParams.MATCH_PARENT));
+            LayoutParams.MATCH_PARENT));
+        
     }
-
-
-    /** Tells native code to switch dataset as soon as possible*/
-    private native void switchDatasetAsap();
-
+    
+    
+    /** Tells native code to switch dataset as soon as possible */
+    private native void switchDatasetAsap(int datasetId);
+    
+    
     private native boolean autofocus();
+    
+    
     private native boolean setFocusMode(int mode);
-
+    
+    
     /** Activates the Flash */
     private native boolean activateFlash(boolean flash);
-
-
+    
+    
     /** Returns the number of registered textures. */
     public int getTextureCount()
     {
         return mTextures.size();
     }
-
-
+    
+    
     /** Returns the texture object at the specified index. */
     public Texture getTexture(int i)
     {
         return mTextures.elementAt(i);
     }
-
-
+    
+    
     /** A helper for loading native libraries stored in "libs/armeabi*". */
     public static boolean loadLibrary(String nLibName)
     {
@@ -833,217 +809,260 @@ public class ImageTargets extends Activity
             System.loadLibrary(nLibName);
             DebugLog.LOGI("Native library lib" + nLibName + ".so loaded");
             return true;
-        }
-        catch (UnsatisfiedLinkError ulee)
+        } catch (UnsatisfiedLinkError ulee)
         {
-            DebugLog.LOGE("The library lib" + nLibName +
-                            ".so could not be loaded");
-        }
-        catch (SecurityException se)
+            DebugLog.LOGE("The library lib" + nLibName
+                + ".so could not be loaded");
+        } catch (SecurityException se)
         {
-            DebugLog.LOGE("The library lib" + nLibName +
-                            ".so was not allowed to be loaded");
+            DebugLog.LOGE("The library lib" + nLibName
+                + ".so was not allowed to be loaded");
         }
-
+        
         return false;
     }
-
-
-    /**
-     * Shows the Camera Options Dialog when the Menu Key is pressed
-     */
-    public boolean onKeyUp(int keyCode, KeyEvent event)
-    {
-        if (keyCode == KeyEvent.KEYCODE_MENU)
-        {
-            showCameraOptionsDialog();
-            return true;
-        }
-
-        return super.onKeyUp(keyCode, event);
-    }
-
-
+    
+    
     public boolean onTouchEvent(MotionEvent event)
     {
         // Process the Gestures
+        if (mSampleAppMenu != null && mSampleAppMenu.processEvent(event))
+            return true;
+        
         return mGestureDetector.onTouchEvent(event);
     }
-
-
+    
     /**
-     * Process Double Tap event for showing the Camera options menu
+     * Process Tap event for autofocus
      */
     private class GestureListener extends
-            GestureDetector.SimpleOnGestureListener
+        GestureDetector.SimpleOnGestureListener
     {
         public boolean onDown(MotionEvent e)
         {
             return true;
         }
-
-
+        
+        
         public boolean onSingleTapUp(MotionEvent e)
         {
             // Calls the Autofocus Native Method
             autofocus();
-
+            
             // Triggering manual auto focus disables continuous
             // autofocus
             mContAutofocus = false;
-
+            
             return true;
         }
-
-
-        // Event when double tap occurs
-        public boolean onDoubleTap(MotionEvent e)
-        {
-            // Shows the Camera options
-            showCameraOptionsDialog();
-            return true;
-        }
+        
     }
-
-
-    /**
-     * Shows an AlertDialog with the camera options available
-     */
-    private void showCameraOptionsDialog()
+    
+    final static int CMD_BACK = -1;
+    final static int CMD_EXTENDED_TRACKING = 1;
+    final static int CMD_AUTOFOCUS = 2;
+    final static int CMD_FLASH = 3;
+    final static int CMD_CAMERA_FRONT = 4;
+    final static int CMD_CAMERA_REAR = 5;
+    final static int CMD_DATASET_STONES_AND_CHIPS_DATASET = 6;
+    final static int CMD_DATASET_TARMAC_DATASET = 7;
+    
+    final static int STONES_AND_CHIPS_DATASET_ID = 0;
+    final static int TARMAC_DATASET_ID = 1;
+    
+    final static int CAMERA_DEFAULT = 0;
+    final static int CAMERA_BACK = 1;
+    final static int CAMERA_FRONT = 2;
+    
+    
+    // This method sets the menu's settings
+    private void setSampleAppMenuSettings()
     {
-        // Only show camera options dialog box if app has been already inited
-        if (mAppStatus < APPSTATUS_INITED)
+        SampleAppMenuGroup group;
+        
+        group = mSampleAppMenu.addGroup("", false);
+        group.addTextItem(getString(R.string.menu_back), -1);
+        
+        group = mSampleAppMenu.addGroup("", true);
+        group.addSelectionItem(getString(R.string.menu_extended_tracking),
+            CMD_EXTENDED_TRACKING, false);
+        group.addSelectionItem(getString(R.string.menu_contAutofocus),
+            CMD_AUTOFOCUS, mContAutofocus);
+        mFlashOptionView = group.addSelectionItem(
+            getString(R.string.menu_flash), CMD_FLASH, false);
+        
+        CameraInfo ci = new CameraInfo();
+        boolean deviceHasFrontCamera = false;
+        boolean deviceHasBackCamera = false;
+        for (int i = 0; i < Camera.getNumberOfCameras(); i++)
         {
-            return;
+            Camera.getCameraInfo(i, ci);
+            if (ci.facing == CameraInfo.CAMERA_FACING_FRONT)
+                deviceHasFrontCamera = true;
+            else if (ci.facing == CameraInfo.CAMERA_FACING_BACK)
+                deviceHasBackCamera = true;
         }
-
-        final int itemCameraIndex = 0;
-        final int itemAutofocusIndex = 1;
-        final int itemSwitchDatasetIndex = 2;
-
-        AlertDialog cameraOptionsDialog = null;
-
-        CharSequence[] items =
-        { getString(R.string.menu_flash_on),
-                getString(R.string.menu_contAutofocus_off),
-                getString(R.string.menu_switch_to_tarmac) };
-
-        // Updates list titles according to current state of the options
-        if (mFlash)
+        
+        if (deviceHasBackCamera && deviceHasFrontCamera)
         {
-            items[itemCameraIndex] = (getString(R.string.menu_flash_off));
+            group = mSampleAppMenu.addGroup(getString(R.string.menu_camera),
+                true);
+            group.addRadioItem(getString(R.string.menu_camera_front),
+                CMD_CAMERA_FRONT, false);
+            group.addRadioItem(getString(R.string.menu_camera_back),
+                CMD_CAMERA_REAR, true);
         }
-        else
-        {
-            items[itemCameraIndex] = (getString(R.string.menu_flash_on));
-        }
-
-        if (mContAutofocus)
-        {
-            items[itemAutofocusIndex] = (getString(R.string.menu_contAutofocus_off));
-        }
-        else
-        {
-            items[itemAutofocusIndex] = (getString(R.string.menu_contAutofocus_on));
-        }
-
-        if (mIsStonesAndChipsDataSetActive)
-        {
-            items[itemSwitchDatasetIndex] = (getString(R.string.menu_switch_to_tarmac));
-        }
-        else
-        {
-            items[itemSwitchDatasetIndex] = (getString(R.string.menu_switch_to_stone_chips));
-        }
-
-        // Builds the Alert Dialog
-        AlertDialog.Builder cameraOptionsDialogBuilder = new AlertDialog.Builder(
-                ImageTargets.this);
-        cameraOptionsDialogBuilder
-                .setTitle(getString(R.string.menu_camera_title));
-        cameraOptionsDialogBuilder.setItems(items,
-                new DialogInterface.OnClickListener()
-                {
-                    public void onClick(DialogInterface dialog, int item)
-                    {
-                        if (item == itemCameraIndex)
-                        {
-                            // Turns focus mode on/off by calling native
-                            // method
-                            if (activateFlash(!mFlash))
-                            {
-                                mFlash = !mFlash;
-                            }
-                            else
-                            {
-                                Toast.makeText
-                                (
-                                    ImageTargets.this,
-                                    "Unable to turn " + 
-                                    (mFlash ? "off" : "on") + " flash",
-                                    Toast.LENGTH_SHORT
-                                ).show();
-                            }
-
-                            // Dismisses the dialog
-                            dialog.dismiss();
-                        }
-                        else if (item == itemAutofocusIndex)
-                        {
-                            if (mContAutofocus)
-                            {
-                                // Sets the Focus Mode by calling the native
-                                // method
-                                if (setFocusMode(FOCUS_MODE_NORMAL))
-                                {
-                                    mContAutofocus = false;
-                                }
-                                else
-                                {
-                                    Toast.makeText
-                                    (
-                                        ImageTargets.this,
-                                        "Unable to deactivate Continuous Auto-Focus",
-                                        Toast.LENGTH_SHORT
-                                    ).show();
-                                }
-                            }
-                            else
-                            {
-                                // Sets the focus mode by calling the native
-                                // method
-                                if (setFocusMode(FOCUS_MODE_CONTINUOUS_AUTO))
-                                {
-                                    mContAutofocus = true;
-                                }
-                                else
-                                {
-                                    Toast.makeText
-                                    (
-                                            ImageTargets.this,
-                                        "Unable to activate Continuous Auto-Focus",
-                                        Toast.LENGTH_SHORT
-                                    ).show();
-                                }
-                            }
-
-                            // Dismisses the dialog
-                            dialog.dismiss();
-                        }
-                        else if (item == itemSwitchDatasetIndex)
-                        {
-
-                            switchDatasetAsap();
-                            mIsStonesAndChipsDataSetActive = !mIsStonesAndChipsDataSetActive;
-
-                            dialog.dismiss();
-                        }
-
-                    }
-                });
-
-        // Shows the Dialog
-        cameraOptionsDialog = cameraOptionsDialogBuilder.create();
-        cameraOptionsDialog.show();
+        
+        group = mSampleAppMenu
+            .addGroup(getString(R.string.menu_datasets), true);
+        group.addRadioItem("Stones & Chips",
+            CMD_DATASET_STONES_AND_CHIPS_DATASET, true);
+        group.addRadioItem("Tarmac", CMD_DATASET_TARMAC_DATASET, false);
+        
+        mSampleAppMenu.attachMenu();
     }
+    
+    
+    @Override
+    public boolean menuProcess(int command)
+    {
+        
+        boolean result = true;
+        
+        switch (command)
+        {
+            case CMD_BACK:
+                finish();
+                break;
+            
+            case CMD_FLASH:
+                result = activateFlash(!mFlash);
+                
+                if (result)
+                {
+                    mFlash = !mFlash;
+                } else
+                {
+                    showToast(getString(mFlash ? R.string.menu_flash_error_off
+                        : R.string.menu_flash_error_on));
+                    DebugLog
+                        .LOGE(getString(mFlash ? R.string.menu_flash_error_off
+                            : R.string.menu_flash_error_on));
+                }
+                break;
+            
+            case CMD_AUTOFOCUS:
+                
+                if (mContAutofocus)
+                {
+                    result = setFocusMode(FOCUS_MODE_NORMAL);
+                    
+                    if (result)
+                    {
+                        mContAutofocus = false;
+                    } else
+                    {
+                        showToast(getString(R.string.menu_contAutofocus_error_off));
+                        DebugLog
+                            .LOGE(getString(R.string.menu_contAutofocus_error_off));
+                    }
+                } else
+                {
+                    result = setFocusMode(FOCUS_MODE_CONTINUOUS_AUTO);
+                    
+                    if (result)
+                    {
+                        mContAutofocus = true;
+                    } else
+                    {
+                        showToast(getString(R.string.menu_contAutofocus_error_on));
+                        DebugLog
+                            .LOGE(getString(R.string.menu_contAutofocus_error_on));
+                    }
+                }
+                
+                break;
+            
+            case CMD_CAMERA_FRONT:
+            case CMD_CAMERA_REAR:
+                
+                // Turn off the flash
+                if (mFlashOptionView != null && mFlash)
+                {
+//                    // OnCheckedChangeListener is called upon changing the checked state
+//                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1)
+//                    {
+                        ((CompoundButton) mFlashOptionView).setChecked(false);
+//                    } else
+//                    {
+//                        ((CheckBox) mFlashOptionView).setChecked(false);
+//                    }
+                }
+                
+                int switchToCamera;
+                
+                if (command == CMD_CAMERA_FRONT)
+                    switchToCamera = CAMERA_FRONT;
+                else
+                    switchToCamera = CAMERA_BACK;
+                
+                stopCamera();
+                startCamera(switchToCamera);
+                
+                // Update projection matrix:
+                setProjectionMatrix();
+                
+                break;
+            
+            case CMD_EXTENDED_TRACKING:
+                if (mExtendedTracking)
+                {
+                    result = stopExtendedTracking();
+                    if (!result)
+                    {
+                        showToast("Failed to stop extended tracking target");
+                        DebugLog
+                            .LOGE("Failed to stop extended tracking target");
+                    }
+                } else
+                {
+                    result = startExtendedTracking();
+                    if (!result)
+                    {
+                        showToast("Failed to start extended tracking target");
+                        DebugLog
+                            .LOGE("Failed to start extended tracking target");
+                    }
+                }
+                
+                if (result)
+                    mExtendedTracking = !mExtendedTracking;
+                
+                break;
+            
+            case CMD_DATASET_STONES_AND_CHIPS_DATASET:
+                switchDatasetAsap(STONES_AND_CHIPS_DATASET_ID);
+                break;
+            
+            case CMD_DATASET_TARMAC_DATASET:
+                switchDatasetAsap(TARMAC_DATASET_ID);
+                break;
+        
+        }
+        
+        return result;
+    }
+    
+    
+    private void showToast(String text)
+    {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    }
+    
+    public void setVideoSize(int width, int height) {
+    	if (mRenderer != null) {
+    		mRenderer.setVideoSize(width, height);
+    	}
+    }
+    
 }

@@ -1,14 +1,7 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
-
-@file 
-    Teapot.h
-
-@brief
-    Geometry for the teapot used in the samples.
-
-==============================================================================*/
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
 #ifndef _QCAR_TEAPOT_OBJECT_H_
 #define _QCAR_TEAPOT_OBJECT_H_

@@ -1,14 +1,8 @@
 /*==============================================================================
-Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
-All Rights Reserved.
+ Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
+ All Rights Reserved.
+ ==============================================================================*/
 
-@file 
-    Texture.h
-
-@brief
-    A utility class for textures used in the samples.
-
-==============================================================================*/
 #ifndef _QCAR_TEXTURE_H_
 #define _QCAR_TEXTURE_H_
 

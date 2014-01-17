@@ -1,5 +1,5 @@
 #===============================================================================
-#Copyright (c) 2010-2013 QUALCOMM Austria Research Center GmbH.
+#Copyright (c) 2012-2013 Qualcomm Connected Experiences, Inc.
 #All Rights Reserved.
 #
 #==============================================================================
@@ -12,13 +12,13 @@
 
 LOCAL_PATH := $(call my-dir)
 
-# The following section is used for copying the libQCAR.so prebuilt library
+# The following section is used for copying the libVuforia.so prebuilt library
 # into the appropriate folder (libs/armeabi and libs/armeabi-v7a respectively)
 # and setting the include path for library-specific header files.
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := QCAR-prebuilt
-LOCAL_SRC_FILES = ../../../build/lib/$(TARGET_ARCH_ABI)/libQCAR.so
+LOCAL_MODULE := Vuforia-prebuilt
+LOCAL_SRC_FILES = ../../../build/lib/$(TARGET_ARCH_ABI)/libVuforia.so
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../../../build/include
 include $(PREBUILT_SHARED_LIBRARY)
 
@@ -39,22 +39,11 @@ include $(CLEAR_VARS)
 # prefix and suffix to the corresponding generated file. In other words,
 # a shared library module named 'foo' will generate 'libfoo.so'.
 
-LOCAL_MODULE := ImageTargets
-
-# The variable USE_OPENGL_ES_1_1 determines the OpenGL ES API version
-# to use. If set to true, OpenGL ES 1.1 is used, otherwise OpenGL ES 2.0.
-
-USE_OPENGL_ES_1_1 := false
+LOCAL_MODULE := ImageTargetsNative
 
 # Set OpenGL ES version-specific settings.
-
-ifeq ($(USE_OPENGL_ES_1_1), true)
-    OPENGLES_LIB  := -lGLESv1_CM
-	OPENGLES_DEF  := -DUSE_OPENGL_ES_1_1
-else
-    OPENGLES_LIB  := -lGLESv2
-	OPENGLES_DEF  := -DUSE_OPENGL_ES_2_0
-endif
+OPENGLES_LIB  := -lGLESv2
+OPENGLES_DEF  := -DUSE_OPENGL_ES_2_0
 
 # An optional set of compiler flags that will be passed when building
 # C and C++ source files.
@@ -78,7 +67,7 @@ LOCAL_LDLIBS := \
 # in the generated file. Here we reference the prebuilt library defined earlier
 # in this makefile.
 
-LOCAL_SHARED_LIBRARIES := QCAR-prebuilt
+LOCAL_SHARED_LIBRARIES := Vuforia-prebuilt
 
 # The LOCAL_SRC_FILES variables must contain a list of C/C++ source files
 # that will be built and assembled into a module. Note that you should not
