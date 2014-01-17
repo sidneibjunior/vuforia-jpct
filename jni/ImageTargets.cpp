@@ -332,7 +332,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 	}
 
 
-	// hide the objects when the targets were not detected
+	// hide the objects when the targets are not detected
 	if (state.getNumTrackableResults() == 0) {
 		float m [] = {
 				1,0,0,0,
@@ -349,7 +349,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 
 
 void
-configureVideoBackground()
+configureVideoBackground(JNIEnv* env, jobject obj)
 {
     // Get the default video mode:
     QCAR::CameraDevice& cameraDevice = QCAR::CameraDevice::getInstance();
@@ -394,6 +394,12 @@ configureVideoBackground()
             config.mSize.data[1] = screenHeight;
         }
     }
+
+    jclass activityClass = env->GetObjectClass(obj);
+
+    jmethodID videoMethod = env->GetMethodID(activityClass, "setVideoSize", "(II)V");
+
+	env->CallVoidMethod(obj, videoMethod, config.mSize.data[0], config.mSize.data[1]);
 
     LOG("Configure Video Background : Video (%d,%d), Screen (%d,%d), mSize (%d,%d)", videoMode.mWidth, videoMode.mHeight, screenWidth, screenHeight, config.mSize.data[0], config.mSize.data[1]);
 
@@ -482,8 +488,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_deinitApplicationNative(
 
 
 JNIEXPORT void JNICALL
-Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv *,
-                                                                         jobject)
+Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv* env, jobject obj)
 {
     LOG("Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera");
     
@@ -496,7 +501,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargets_startCamera(JNIEnv *,
         return;
 
     // Configure the video background
-    configureVideoBackground();
+    configureVideoBackground(env, obj);
 
     // Select the default mode:
     if (!QCAR::CameraDevice::getInstance().selectVideoMode(
@@ -650,7 +655,7 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_updateRendering(
     screenHeight = height;
 
     // Reconfigure the video background
-    configureVideoBackground();
+    configureVideoBackground(env, obj);
 
     jclass activityClass = env->GetObjectClass(obj); //We get the class of out activity
 	const QCAR::CameraCalibration& cameraCalibration = QCAR::CameraDevice::getInstance().getCameraCalibration();

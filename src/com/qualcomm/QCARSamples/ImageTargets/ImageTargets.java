@@ -14,7 +14,6 @@ All Rights Reserved.
 package com.qualcomm.QCARSamples.ImageTargets;
 
 import java.lang.ref.WeakReference;
-import java.lang.reflect.Field;
 import java.util.Vector;
 
 import android.app.Activity;
@@ -160,6 +159,12 @@ public class ImageTargets extends Activity
                 imageTargets.mLoadingDialogContainer.setVisibility(View.GONE);
             }
         }
+    }
+    
+    public void setVideoSize(int width, int height) {
+    	if (mRenderer != null) {
+    		mRenderer.setVideoSize(width, height);
+    	}
     }
 
 

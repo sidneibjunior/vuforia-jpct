@@ -12,20 +12,18 @@ All Rights Reserved.
 
 package com.qualcomm.QCARSamples.ImageTargets;
 
-import java.io.IOException;
-import java.io.InputStream;
-
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 import android.opengl.GLSurfaceView;
-import android.os.Debug;
+import android.util.DisplayMetrics;
+import android.util.Log;
 
 import com.qualcomm.QCAR.QCAR;
 import com.threed.jpct.Camera;
+import com.threed.jpct.Config;
 import com.threed.jpct.FrameBuffer;
 import com.threed.jpct.Light;
-import com.threed.jpct.Loader;
 import com.threed.jpct.Matrix;
 import com.threed.jpct.Object3D;
 import com.threed.jpct.Primitives;
@@ -58,6 +56,10 @@ public class ImageTargetsRenderer implements GLSurfaceView.Renderer {
 	private float fov;
 
 	private float fovy;
+
+	private int videoWidth;
+
+	private int videoHeight;
 
 	/** Native function for initializing the renderer. */
 	public native void initRendering();
@@ -123,6 +125,7 @@ public class ImageTargetsRenderer implements GLSurfaceView.Renderer {
 			fb.dispose();
 		}
 		fb = new FrameBuffer(width, height);
+		Config.viewportOffsetAffectsRenderTarget=true;
 
 		// Call native function to update rendering when render surface
 		// parameters have changed:
@@ -176,5 +179,23 @@ public class ImageTargetsRenderer implements GLSurfaceView.Renderer {
 
 	public void updateModelviewMatrix(float mat[]) {
 		modelViewMat = mat;
+	}
+
+	public void setVideoSize(int videoWidth, int videoHeight) {
+		this.videoWidth = videoWidth;
+		this.videoHeight = videoHeight;
+		
+		
+		DisplayMetrics displaymetrics = new DisplayMetrics();
+		mActivity.getWindowManager().getDefaultDisplay().getMetrics(displaymetrics);
+		int height = displaymetrics.heightPixels;
+		int width = displaymetrics.widthPixels;
+		
+		int widestVideo = videoWidth > videoHeight? videoWidth: videoHeight;
+		int widestScreen = width > height? width: height;
+		
+		float diff = (widestVideo - widestScreen) / 2;
+		
+		Config.viewportOffsetY = diff / widestScreen;
 	}
 }

@@ -9,6 +9,8 @@
 *.o
 *.d
 
+*.cmd
+
 # generated files
 bin/
 bin/*
