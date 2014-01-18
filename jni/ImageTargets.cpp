@@ -29,6 +29,7 @@
 
 
 #include "SampleUtils.h"
+#include "SampleMath.h"
 #include "Texture.h"
 #include "CubeShaders.h"
 #include "Teapot.h"
@@ -342,8 +343,11 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_renderFrame(JNIE
 
 		SampleUtils::rotatePoseMatrix(90.0f, 1.0f, 0, 0, &modelViewMatrix.data[0]);
 
+		QCAR::Matrix44F inverseMV = SampleMath::Matrix44FInverse(modelViewMatrix);
+		QCAR::Matrix44F invTranspMV = SampleMath::Matrix44FTranspose(inverseMV);
+
 		// Passes the model view matrix to java
-		env->SetFloatArrayRegion(modelviewArray, 0, 16, modelViewMatrix.data);
+		env->SetFloatArrayRegion(modelviewArray, 0, 16, invTranspMV.data);
 		env->CallVoidMethod(obj, updateMatrixMethod, modelviewArray);
 	}
 
@@ -726,8 +730,14 @@ Java_com_qualcomm_QCARSamples_ImageTargets_ImageTargetsRenderer_updateRendering(
 	jmethodID fovMethod = env->GetMethodID(activityClass, "setFov", "(F)V");
 	jmethodID fovyMethod = env->GetMethodID(activityClass, "setFovy", "(F)V");
 
-	env->CallVoidMethod(obj, fovMethod, fovRadians);
-	env->CallVoidMethod(obj, fovyMethod, fovyRadians);
+
+	if (isActivityInPortraitMode) {
+		 env->CallVoidMethod(obj, fovyMethod, fovRadians);
+		 env->CallVoidMethod(obj, fovMethod, fovyRadians);
+	} else {
+		 env->CallVoidMethod(obj, fovMethod, fovRadians);
+		 env->CallVoidMethod(obj, fovyMethod, fovyRadians);
+	}
 }
 
 

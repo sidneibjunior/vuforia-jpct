@@ -16,7 +16,6 @@ import com.threed.jpct.Camera;
 import com.threed.jpct.Config;
 import com.threed.jpct.FrameBuffer;
 import com.threed.jpct.Light;
-import com.threed.jpct.Matrix;
 import com.threed.jpct.Object3D;
 import com.threed.jpct.Primitives;
 import com.threed.jpct.SimpleVector;
@@ -160,9 +159,21 @@ public class ImageTargetsRenderer implements GLSurfaceView.Renderer
     
     public void updateCamera() {
 		if (modelViewMat != null) {
-			Matrix m = new Matrix();
-			m.setDump(modelViewMat);
-			cam.setBack(m);
+			float[] m = modelViewMat;
+
+			final SimpleVector camUp;
+			if (mActivity.isPortrait()) {
+				camUp = new SimpleVector(-m[0], -m[1], -m[2]);
+			} else {
+				camUp = new SimpleVector(-m[4], -m[5], -m[6]);
+			}
+			
+			final SimpleVector camDirection = new SimpleVector(m[8], m[9], m[10]);
+			final SimpleVector camPosition = new SimpleVector(m[12], m[13], m[14]);
+			
+			cam.setOrientation(camDirection, camUp);
+			cam.setPosition(camPosition);
+			
 			cam.setFOV(fov);
 			cam.setYFOV(fovy);
 		}

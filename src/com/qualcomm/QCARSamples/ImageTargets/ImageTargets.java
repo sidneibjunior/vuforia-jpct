@@ -160,6 +160,7 @@ public class ImageTargets extends Activity implements SampleAppMenuInterface
     }
     
     private Handler loadingDialogHandler = new LoadingDialogHandler(this);
+	private boolean isPortrait;
     
     /** An async task to initialize Vuforia asynchronously. */
     private class InitVuforiaTask extends AsyncTask<Void, Integer, Boolean>
@@ -707,17 +708,28 @@ public class ImageTargets extends Activity implements SampleAppMenuInterface
     }
     
     
-    /** Tells native code whether we are in portait or landscape mode */
+    /**
+     * Tells native code whether we are in portrait or landscape mode.
+     * You should call {@link ImageTargets#setPortraitMode(boolean)} instead of calling
+     * this native function directly 
+     */
     private native void setActivityPortraitMode(boolean isPortrait);
+    
+    private void setPortraitMode(boolean isPortrait) {
+    	this.isPortrait = isPortrait;
+		setActivityPortraitMode(isPortrait);
+    }
     
     
     /** Initialize application GUI elements that are not related to AR. */
     private void initApplication()
     {
     	
-    	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-
-        setActivityPortraitMode(false);
+    	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setPortraitMode(true);
+    	
+//    	setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+//    	setPortraitMode(false);
         
         // Query display dimensions:
         storeScreenDimensions();
@@ -757,7 +769,6 @@ public class ImageTargets extends Activity implements SampleAppMenuInterface
             null, false);
         
         mUILayout.setVisibility(View.VISIBLE);
-        mUILayout.setBackgroundColor(Color.BLACK);
         
         // Gets a reference to the loading dialog
         mLoadingDialogContainer = mUILayout
@@ -1064,5 +1075,10 @@ public class ImageTargets extends Activity implements SampleAppMenuInterface
     		mRenderer.setVideoSize(width, height);
     	}
     }
-    
+
+
+	public boolean isPortrait() {
+		return isPortrait;
+	}
+
 }
